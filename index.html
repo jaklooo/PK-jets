@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="sk">
+
+<!-- Mirrored from dancing-chebakia-7e7185.netlify.app/ by HTTrack Website Copier/3.x [XR&CO'2014], Sat, 11 Oct 2025 09:37:17 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=UTF-8" /><!-- /Added by HTTrack -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Stíhačka - Space Fighter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            background: #000;
+        }
+        
+        #gameCanvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            font-size: 20px;
+            text-shadow: 2px 2px 4px #000;
+            z-index: 100;
+        }
+        
+        #health {
+            margin-top: 10px;
+        }
+        
+        #healthBar {
+            width: 200px;
+            height: 20px;
+            background: #333;
+            border: 2px solid #fff;
+            margin-top: 5px;
+        }
+        
+        #healthFill {
+            height: 100%;
+            background: linear-gradient(90deg, #f00, #0f0);
+            width: 100%;
+            transition: width 0.3s;
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #fff;
+            font-size: 14px;
+            text-shadow: 1px 1px 2px #000;
+        }
+        
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 48px;
+            text-align: center;
+            display: none;
+            text-shadow: 3px 3px 6px #000;
+        }
+        
+        #gameOver button {
+            margin-top: 20px;
+            padding: 15px 30px;
+            font-size: 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        #gameOver button:hover {
+            background: #45a049;
+        }
+        
+        /* Loading Screen */
+        #loadingScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #BB133A;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s;
+        }
+        
+        #loadingScreen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        #loadingLogo {
+            width: 300px;
+            height: 300px;
+            margin-bottom: 30px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        #loadingText {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        
+        #loadingBar {
+            width: 400px;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        #loadingProgress {
+            width: 0%;
+            height: 100%;
+            background: white;
+            transition: width 0.3s;
+        }
+        
+        /* Main Menu */
+        #mainMenu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9998;
+        }
+        
+        #mainMenu.active {
+            display: flex;
+        }
+        
+        #menuTitle {
+            font-size: 72px;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(187, 19, 58, 0.8);
+            animation: glow 2s infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 20px rgba(187, 19, 58, 0.8); }
+            to { text-shadow: 0 0 30px rgba(187, 19, 58, 1); }
+        }
+        
+        #menuSubtitle {
+            font-size: 24px;
+            color: #aaa;
+            margin-bottom: 60px;
+        }
+        
+        .menuButton {
+            background: #BB133A;
+            color: white;
+            border: none;
+            padding: 20px 60px;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 15px;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .menuButton:hover {
+            background: #d61545;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(187, 19, 58, 0.5);
+        }
+        
+        .menuButton:active {
+            transform: translateY(0);
+        }
+        
+        /* Tutorial Screen */
+        #tutorialScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9997;
+            padding: 40px;
+        }
+        
+        #tutorialScreen.active {
+            display: flex;
+        }
+        
+        #tutorialContent {
+            max-width: 800px;
+            background: rgba(30, 30, 30, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            border: 3px solid #BB133A;
+        }
+        
+        #tutorialContent h2 {
+            color: #BB133A;
+            font-size: 48px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        #tutorialContent h3 {
+            color: #fff;
+            font-size: 28px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+        
+        #tutorialContent p {
+            color: #ccc;
+            font-size: 18px;
+            line-height: 1.8;
+            margin-bottom: 15px;
+        }
+        
+        .controlKey {
+            display: inline-block;
+            background: #333;
+            color: #00ff00;
+            padding: 5px 12px;
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+            margin: 0 3px;
+            font-family: monospace;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        #tutorialClose {
+            margin-top: 40px;
+            background: #BB133A;
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 10px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        #tutorialClose:hover {
+            background: #d61545;
+        }
+        
+        /* Radar styles */
+        #radar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #0f0;
+            border-radius: 50%;
+            z-index: 100;
+        }
+        
+        #radarCanvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+        }
+        
+        /* Lock-on indicator */
+        #lockIndicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px;
+            height: 100px;
+            border: 3px solid #00ff00;
+            background: rgba(0, 255, 0, 0.05);
+            display: none;
+            z-index: 150;
+            transition: all 0.1s;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        /* Missile counter */
+        #missileCount {
+            margin-top: 10px;
+            font-size: 18px;
+            color: #ff6600;
+            font-weight: bold;
+        }
+        
+        /* Takeoff hint */
+        #takeoffHint {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: #ffffff;
+            padding: 20px 40px;
+            border: 3px solid #00ff00;
+            border-radius: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            z-index: 200;
+            display: none;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+        }
+        
+        #takeoffHint .key {
+            display: inline-block;
+            background: #333;
+            color: #00ff00;
+            padding: 5px 15px;
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+            margin: 0 5px;
+            font-family: monospace;
+            font-size: 28px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loadingScreen">
+        <svg id="loadingLogo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <!-- Stíhačka silueta -->
+            <g fill="white">
+                <!-- Trup -->
+                <ellipse cx="100" cy="100" rx="15" ry="50" fill="white"/>
+                <!-- Kokpit -->
+                <circle cx="100" cy="70" r="8" fill="white" opacity="0.7"/>
+                <!-- Krídla -->
+                <rect x="40" y="95" width="120" height="10" rx="2" fill="white"/>
+                <!-- Koncové krídla -->
+                <polygon points="35,100 25,90 25,110" fill="white"/>
+                <polygon points="165,100 175,90 175,110" fill="white"/>
+                <!-- Vertikálny stabilizátor -->
+                <rect x="95" y="135" width="10" height="20" rx="1" fill="white"/>
+                <!-- Horizontálne stabilizátory -->
+                <rect x="70" y="145" width="60" height="5" rx="1" fill="white"/>
+            </g>
+        </svg>
+        <div id="loadingText">Načítava sa...</div>
+        <div id="loadingBar">
+            <div id="loadingProgress"></div>
+        </div>
+    </div>
+    
+    <!-- Main Menu -->
+    <div id="mainMenu">
+        <h1 id="menuTitle">STÍHAČKA PK</h1>
+        <p id="menuSubtitle">Bojová letecká misia</p>
+        <button class="menuButton" onclick="startGame()">▶ ŠTART HRY</button>
+        <button class="menuButton" onclick="showTutorial()">📖 TUTORIÁL</button>
+    </div>
+    
+    <!-- Tutorial Screen -->
+    <div id="tutorialScreen">
+        <div id="tutorialContent">
+            <h2>📖 TUTORIÁL</h2>
+            
+            <h3>🎯 Cieľ misie:</h3>
+            <p>Zničiť nepriateľskú budovu HOLLAR a prežiť!</p>
+            
+            <h3>✈️ Základné ovládanie:</h3>
+            <p>
+                <span class="controlKey">W</span> Zrýchliť dopredu<br>
+                <span class="controlKey">S</span> Spomaliť<br>
+                <span class="controlKey">A</span> <span class="controlKey">D</span> Otočiť doľava/doprava<br>
+                <span class="controlKey">↑</span> <span class="controlKey">↓</span> Stúpať/klesať<br>
+                <span class="controlKey">Q</span> <span class="controlKey">E</span> Nakloniť doľava/doprava<br>
+                <span class="controlKey">SHIFT</span> Turbo (vyššia rýchlosť)
+            </p>
+            
+            <h3>🔫 Zbrane:</h3>
+            <p>
+                <span class="controlKey">MEDZERNÍK</span> Guľometné paľba (neobmedzená)<br>
+                <span class="controlKey">K</span> Navádzaná raketa (20× kusov)<br>
+                → Zamier na cieľ 2 sekundy pre zamknutie
+            </p>
+            
+            <h3>⚠️ Pozor na:</h3>
+            <p>
+                • Nepriateľské stíhačky (červené MiG-15)<br>
+                • AA delá okolo budovy HOLLAR<br>
+                • Kolízie so zemou a budovami<br>
+                • Tvoj health (zelený bar)
+            </p>
+            
+            <h3>💡 Tipy:</h3>
+            <p>
+                • Lietadlo sa pomaly vyrovnáva samo<br>
+                • Použij rakety na budovu HOLLAR<br>
+                • Vyhýbaj sa AA strelám (oranžové)<br>
+                • Radar ti ukáže nepriateľov (zelené body)
+            </p>
+            
+            <button id="tutorialClose" onclick="closeTutorial()">ROZUMIEM</button>
+        </div>
+    </div>
+    
+    <div id="ui" style="display: none;">
+        <div id="score">Skóre: 0</div>
+        <div id="health">
+            Zdravie:
+            <div id="healthBar">
+                <div id="healthFill"></div>
+            </div>
+        </div>
+        <div id="fsvHealth" style="margin-top: 10px;">
+            🏛️ FSV Jinonice: <span style="color: #00ff00; font-weight: bold;">200/200</span>
+        </div>
+        <div id="missionStatus" style="margin-top: 10px; color: #ffaa00; font-weight: bold;">
+            ⚔️ Fáza 1: Chráň FSV!
+        </div>
+        <div id="altitude" style="margin-top: 10px;">Výška: 0m</div>
+        <div id="speed" style="margin-top: 5px;">Rýchlosť: 0 km/h</div>
+        <div id="position" style="margin-top: 5px; font-size: 14px;">Pozícia: X: 0, Z: 0</div>
+        <div id="missileCount" style="margin-top: 10px;">🚀 Rakety: 20</div>
+    </div>
+    
+    <!-- Lock-on targeting indicator -->
+    <div id="lockIndicator"></div>
+    
+    <!-- Takeoff instruction hint -->
+    <div id="takeoffHint">
+        Stlač <span class="key">W</span> a potom <span class="key">↑</span> pre vzlet!
+    </div>
+    
+    <!-- Radar -->
+    <div id="radar" style="display: none;">
+        <canvas id="radarCanvas" width="200" height="200"></canvas>
+    </div>
+    
+    <div id="instructions" style="display: none;">
+        <strong>Ovládanie:</strong><br>
+        W - Dopredu (zrýchliť)<br>
+        S - Dozadu (spomaliť)<br>
+        A/D - Otočiť vľavo/vpravo<br>
+        Q/E - Nakloniť vľavo/vpravo<br>
+        ↑/↓ - Hore/Dole<br>
+        MEDZERNÍK - Streľba<br>
+        K - Navádzaná raketa (zamier na cieľ 2s)<br>
+        SHIFT - Turbo (vyššia rýchlosť)
+    </div>
+    
+    <div id="gameOver">
+        <div id="gameOverText">KONIEC HRY!</div>
+        <div id="finalScore" style="font-size: 24px; margin-top: 10px;"></div>
+        <button onclick="restartGame()">Hrať znova</button>
+    </div>
+    
+    <!-- Three.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- TDS/3DS Loader for Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/TDSLoader.js"></script>
+    <!-- TGA Loader for textures -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/TGALoader.js"></script>
+    
+    <!-- Main game script -->
+    <script src="game.js"></script>
+</body>
+
+<!-- Mirrored from dancing-chebakia-7e7185.netlify.app/ by HTTrack Website Copier/3.x [XR&CO'2014], Sat, 11 Oct 2025 09:37:19 GMT -->
+</html>

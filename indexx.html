@@ -1,0 +1,781 @@
+<!doctype html>
+<html lang="sk">
+<head>
+  <meta charset="utf-8" />
+  <title>FSV UK Jinonice – Library Golden Cube (LOD0) v2.1</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body { height: 100%; margin: 0; background: #87ceeb; overflow: hidden; }
+    #app { position: fixed; inset: 0; }
+    .label {
+      position: absolute; left: 16px; bottom: 16px; color: #fff;
+      font: 12px/1.3 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      user-select: none;
+      background: rgba(0,0,0,.4); padding: 8px 10px; border-radius: 10px; backdrop-filter: blur(6px);
+    }
+    .controls {
+      position: absolute; left: 16px; top: 16px; color: #fff;
+      font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background: rgba(0,0,0,.4); padding: 10px 12px; border-radius: 10px; backdrop-filter: blur(6px);
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div class="controls">
+    <strong>FSV UK Jinonice – U Kříže 8, Praha 5</strong><br/>
+    LOD0 Hero Quality | Real-world scale (1 unit = 1 m)
+  </div>
+  <div class="label">
+    Drag = orbit • Wheel = zoom • Right-drag = pan
+  </div>
+
+  <!-- Three.js from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  
+  <script>
+    // ---------- Renderer ----------
+    const container = document.getElementById("app");
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    container.appendChild(renderer.domElement);
+
+    // ---------- Scene & Camera ----------
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb); // Sky blue
+    scene.fog = new THREE.Fog(0x87ceeb, 100, 300);
+
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 500);
+    camera.position.set(50, 15, 50); // Lepší uhol pohľadu
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.target.set(0, 8, 0);
+    controls.maxPolarAngle = Math.PI / 2.1;
+
+    // ---------- Lighting (Overcast HDRI simulation) ----------
+    const ambientLight = new THREE.AmbientLight(0xb0c4de, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    dirLight.position.set(30, 50, 20);
+    dirLight.castShadow = true;
+    dirLight.shadow.camera.left = -50;
+    dirLight.shadow.camera.right = 50;
+    dirLight.shadow.camera.top = 50;
+    dirLight.shadow.camera.bottom = -50;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+
+    const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x6a7a8a, 0.4);
+    scene.add(hemisphereLight);
+
+    // ---------- Materials ----------
+    
+    // Gold expanded-metal screen (tahokov) - diamond lattice
+    const goldScreenMaterial = new THREE.MeshStandardMaterial({
+      color: 0xdaa520,
+      metalness: 0.7,
+      roughness: 0.4,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.85
+    });
+
+    // Dark curtain wall glass - tmavšie ako v realite
+    const curtainWallMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0x1a1a1a,
+      metalness: 0.2,
+      roughness: 0.15,
+      transmission: 0.6,
+      thickness: 0.5,
+      ior: 1.52,
+      reflectivity: 0.6
+    });
+
+    // Concrete/plaster
+    const concreteMaterial = new THREE.MeshStandardMaterial({
+      color: 0xc0c0c0,
+      roughness: 0.8,
+      metalness: 0.1
+    });
+
+    // Teaching block plaster (brick-orange) - tehlovo-červená ako v realite
+    const teachingBlockMaterial = new THREE.MeshStandardMaterial({
+      color: 0xc85e3a,
+      roughness: 0.75,
+      metalness: 0.0
+    });
+
+    // Dark anodized frames
+    const frameMaterial = new THREE.MeshStandardMaterial({
+      color: 0x1a1a1a,
+      metalness: 0.6,
+      roughness: 0.3
+    });
+
+    // Ground paving
+    const pavingMaterial = new THREE.MeshStandardMaterial({
+      color: 0xb0b0b0,
+      roughness: 0.9,
+      metalness: 0.0
+    });
+
+    // ---------- Ground Plane ----------
+    const groundGeom = new THREE.PlaneGeometry(200, 200);
+    const ground = new THREE.Mesh(groundGeom, pavingMaterial);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // ---------- Plaza & Stairs ----------
+    function createPlaza() {
+      const group = new THREE.Group();
+      
+      // Main plaza platform
+      const plazaGeom = new THREE.BoxGeometry(40, 0.3, 30);
+      const plaza = new THREE.Mesh(plazaGeom, concreteMaterial);
+      plaza.position.set(0, 0.15, -5);
+      plaza.receiveShadow = true;
+      plaza.castShadow = true;
+      group.add(plaza);
+
+      // Stairs (3 wide steps leading up to entrance)
+      for (let i = 0; i < 3; i++) {
+        const stepGeom = new THREE.BoxGeometry(20, 0.15, 2);
+        const step = new THREE.Mesh(stepGeom, concreteMaterial);
+        step.position.set(0, 0.3 + i * 0.15, -10 + i * 1.5);
+        step.receiveShadow = true;
+        step.castShadow = true;
+        group.add(step);
+      }
+
+      // Railings (simple metal bars)
+      const railingGeom = new THREE.BoxGeometry(0.1, 1.0, 15);
+      const railing1 = new THREE.Mesh(railingGeom, frameMaterial);
+      railing1.position.set(-10, 0.5, -5);
+      group.add(railing1);
+
+      const railing2 = new THREE.Mesh(railingGeom, frameMaterial);
+      railing2.position.set(10, 0.5, -5);
+      group.add(railing2);
+
+      return group;
+    }
+    scene.add(createPlaza());
+
+    // ---------- Building A – Library "Golden Cube" ----------
+    
+    // Plinth (ground floor) - Dark glazed curtain wall
+    function createPlinth() {
+      const group = new THREE.Group();
+      
+      // Main glass volume
+      const glassGeom = new THREE.BoxGeometry(30, 4, 20);
+      const glassBox = new THREE.Mesh(glassGeom, curtainWallMaterial);
+      glassBox.position.set(0, 2, 0);
+      glassBox.castShadow = true;
+      glassBox.receiveShadow = true;
+      group.add(glassBox);
+
+      // Dark frames (vertical mullions)
+      for (let i = -3; i <= 3; i++) {
+        const mullionGeom = new THREE.BoxGeometry(0.15, 4, 0.15);
+        const mullion = new THREE.Mesh(mullionGeom, frameMaterial);
+        mullion.position.set(i * 4, 2, -10);
+        group.add(mullion);
+        
+        const mullion2 = new THREE.Mesh(mullionGeom, frameMaterial);
+        mullion2.position.set(i * 4, 2, 10);
+        group.add(mullion2);
+      }
+
+      // Entrance door (darker area)
+      const doorGeom = new THREE.BoxGeometry(3, 3, 0.2);
+      const doorMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+      const door = new THREE.Mesh(doorGeom, doorMat);
+      door.position.set(0, 1.5, -10.1);
+      group.add(door);
+
+      // Signage: "FAKULTA SOCIÁLNÍCH VĚD UK" - čierny podklad
+      const signageGeom = new THREE.BoxGeometry(16, 1.2, 0.2);
+      const signageMat = new THREE.MeshStandardMaterial({ 
+        color: 0x0a0a0a,
+        roughness: 0.6
+      });
+      const signage = new THREE.Mesh(signageGeom, signageMat);
+      signage.position.set(0, 3.2, -10.3); // Nižšie a bližšie
+      signage.castShadow = true;
+      group.add(signage);
+
+      // Text texture - väčší a čitateľnejší
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#0a0a0a'; // Čierne pozadie
+      ctx.fillRect(0, 0, 1024, 128);
+      ctx.fillStyle = '#ffffff'; // Biele písmo
+      ctx.font = 'bold 52px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('FAKULTA SOCIÁLNÍCH VĚD UK', 512, 64);
+      
+      const texture = new THREE.CanvasTexture(canvas);
+      const textMat = new THREE.MeshBasicMaterial({ 
+        map: texture, 
+        transparent: false,
+        opacity: 1.0
+      });
+      const textGeom = new THREE.PlaneGeometry(15.5, 1.0);
+      const textMesh = new THREE.Mesh(textGeom, textMat);
+      textMesh.position.set(0, 3.2, -10.35); // Pred signage
+      group.add(textMesh);
+
+      return group;
+    }
+    const plinthGroup = createPlinth();
+    scene.add(plinthGroup);
+
+    // Cantilevered "Cube" - Gold wrapped volume
+    function createGoldenCube() {
+      const group = new THREE.Group();
+      
+      // Main cube core (concrete/glass behind screen)
+      // Väčšia konzola pre dramatickejší efekt - VÝRAZNE VYSUNUTÁ
+      const cubeWidth = 38;
+      const cubeHeight = 18;
+      const cubeDepth = 24;
+      
+      // Core structure (simplified window bands)
+      const coreGeom = new THREE.BoxGeometry(cubeWidth - 1, cubeHeight, cubeDepth - 1);
+      const coreMat = new THREE.MeshStandardMaterial({ 
+        color: 0xe0e0e0,
+        roughness: 0.3,
+        metalness: 0.1
+      });
+      const core = new THREE.Mesh(coreGeom, coreMat);
+      core.position.set(0, 12, 2); // POSUNIEM DOPREDU (+2 v Z osi)
+      core.castShadow = true;
+      core.receiveShadow = true;
+      group.add(core);
+
+      // Window bands (horizontal stripes)
+      for (let i = 0; i < 4; i++) {
+        const windowGeom = new THREE.BoxGeometry(cubeWidth - 2, 2.5, 0.2);
+        const windowMat = new THREE.MeshPhysicalMaterial({
+          color: 0x4a5a6a,
+          metalness: 0.1,
+          roughness: 0.1,
+          transmission: 0.6,
+          ior: 1.52
+        });
+        const window1 = new THREE.Mesh(windowGeom, windowMat);
+        window1.position.set(0, 6 + i * 3.5, 2 + (cubeDepth - 1) / 2); // +2 v Z
+        group.add(window1);
+
+        const window2 = window1.clone();
+        window2.position.z = 2 - (cubeDepth - 1) / 2; // +2 v Z
+        group.add(window2);
+      }
+
+      // Gold expanded-metal screen (diamond lattice)
+      // Front screen
+      const screenGeom = new THREE.PlaneGeometry(cubeWidth, cubeHeight);
+      
+      // Create diamond/rhombus pattern texture (hustejší vzor ako v realite)
+      const screenCanvas = document.createElement('canvas');
+      screenCanvas.width = 1024;
+      screenCanvas.height = 1024;
+      const sCtx = screenCanvas.getContext('2d');
+      
+      // Gold base - sýtejšia zlatá farba
+      sCtx.fillStyle = '#c9a536';
+      sCtx.fillRect(0, 0, 1024, 1024);
+      
+      // Diamond lattice pattern - hustejší
+      sCtx.strokeStyle = '#8b7220';
+      sCtx.lineWidth = 3;
+      
+      const spacing = 12; // Menšie spacing = hustejší vzor
+      for (let y = 0; y < 1024; y += spacing) {
+        for (let x = 0; x < 1024; x += spacing * 2) {
+          // Diamond shape
+          sCtx.beginPath();
+          sCtx.moveTo(x + spacing, y);
+          sCtx.lineTo(x + spacing * 2, y + spacing / 2);
+          sCtx.lineTo(x + spacing, y + spacing);
+          sCtx.lineTo(x, y + spacing / 2);
+          sCtx.closePath();
+          sCtx.stroke();
+        }
+      }
+      
+      // Pridaj jemné tieňovanie pre 3D efekt
+      sCtx.fillStyle = 'rgba(0,0,0,0.05)';
+      for (let y = 0; y < 1024; y += spacing) {
+        for (let x = 0; x < 1024; x += spacing * 2) {
+          sCtx.beginPath();
+          sCtx.moveTo(x + spacing, y + spacing / 2);
+          sCtx.lineTo(x + spacing, y + spacing);
+          sCtx.lineTo(x, y + spacing / 2);
+          sCtx.closePath();
+          sCtx.fill();
+        }
+      }
+      
+      const screenTexture = new THREE.CanvasTexture(screenCanvas);
+      screenTexture.wrapS = THREE.RepeatWrapping;
+      screenTexture.wrapT = THREE.RepeatWrapping;
+      screenTexture.repeat.set(12, 6); // Viac opakovaní pre hustejší vzor
+      
+      const screenMat = new THREE.MeshStandardMaterial({
+        map: screenTexture,
+        color: 0xc9a536, // Sýtejšia zlatá
+        metalness: 0.75,
+        roughness: 0.35,
+        transparent: true,
+        opacity: 0.85,
+        side: THREE.DoubleSide
+      });
+      
+      // Front screen panel
+      const frontScreen = new THREE.Mesh(screenGeom, screenMat);
+      frontScreen.position.set(0, 12, 2 + cubeDepth / 2 + 0.3); // +2 v Z
+      frontScreen.castShadow = true;
+      group.add(frontScreen);
+
+      // Back screen panel
+      const backScreen = frontScreen.clone();
+      backScreen.position.z = 2 - (cubeDepth / 2 + 0.3); // +2 v Z
+      backScreen.rotation.y = Math.PI;
+      group.add(backScreen);
+
+      // Side screens
+      const sideScreenGeom = new THREE.PlaneGeometry(cubeDepth + 0.6, cubeHeight);
+      const leftScreen = new THREE.Mesh(sideScreenGeom, screenMat);
+      leftScreen.position.set(-cubeWidth / 2 - 0.3, 12, 2); // +2 v Z
+      leftScreen.rotation.y = Math.PI / 2;
+      leftScreen.castShadow = true;
+      group.add(leftScreen);
+
+      const rightScreen = leftScreen.clone();
+      rightScreen.position.x = cubeWidth / 2 + 0.3;
+      rightScreen.position.z = 2; // +2 v Z
+      rightScreen.rotation.y = -Math.PI / 2;
+      group.add(rightScreen);
+
+      // Soffit under cantilever (smooth ceiling with placeholder lights)
+      const soffitGeom = new THREE.BoxGeometry(cubeWidth, 0.3, cubeDepth);
+      const soffitMat = new THREE.MeshStandardMaterial({ 
+        color: 0xd0d0d0,
+        roughness: 0.3
+      });
+      const soffit = new THREE.Mesh(soffitGeom, soffitMat);
+      soffit.position.set(0, 4, 2); // +2 v Z - konzola vyčnieva
+      soffit.receiveShadow = true;
+      group.add(soffit);
+
+      // Placeholder ceiling lights
+      for (let i = -2; i <= 2; i++) {
+        for (let j = -1; j <= 1; j++) {
+          const lightGeom = new THREE.CircleGeometry(0.3, 16);
+          const lightMat = new THREE.MeshBasicMaterial({ color: 0xffffdd });
+          const light = new THREE.Mesh(lightGeom, lightMat);
+          light.position.set(i * 6, 3.85, 2 + j * 6); // +2 v Z
+          light.rotation.x = -Math.PI / 2;
+          group.add(light);
+        }
+      }
+
+      // VEĽKÝ NÁPIS NA BUDOVE - "FAKULTA SOCIÁLNÍCH VĚD"
+      const bigSignCanvas = document.createElement('canvas');
+      bigSignCanvas.width = 2048;
+      bigSignCanvas.height = 256;
+      const bigCtx = bigSignCanvas.getContext('2d');
+      
+      // Transparent background
+      bigCtx.clearRect(0, 0, 2048, 256);
+      
+      // White text with shadow
+      bigCtx.fillStyle = '#ffffff';
+      bigCtx.shadowColor = 'rgba(0,0,0,0.5)';
+      bigCtx.shadowBlur = 10;
+      bigCtx.shadowOffsetX = 3;
+      bigCtx.shadowOffsetY = 3;
+      bigCtx.font = 'bold 120px Arial';
+      bigCtx.textAlign = 'center';
+      bigCtx.textBaseline = 'middle';
+      bigCtx.fillText('FAKULTA SOCIÁLNÍCH VĚD', 1024, 128);
+      
+      const bigSignTexture = new THREE.CanvasTexture(bigSignCanvas);
+      const bigSignMat = new THREE.MeshBasicMaterial({ 
+        map: bigSignTexture, 
+        transparent: true,
+        opacity: 1.0,
+        side: THREE.DoubleSide
+      });
+      const bigSignGeom = new THREE.PlaneGeometry(32, 4);
+      const bigSignMesh = new THREE.Mesh(bigSignGeom, bigSignMat);
+      bigSignMesh.position.set(0, 16, 2 + cubeDepth / 2 + 0.35); // Na prednej strane kocky
+      group.add(bigSignMesh);
+
+      return group;
+    }
+    const cubeGroup = createGoldenCube();
+    scene.add(cubeGroup);
+
+    // ---------- Teaching Block (existing) ----------
+    function createTeachingBlock() {
+      const group = new THREE.Group();
+      
+      // Main block - brick-orange plaster
+      const blockGeom = new THREE.BoxGeometry(25, 12, 15);
+      const block = new THREE.Mesh(blockGeom, teachingBlockMaterial);
+      block.position.set(-30, 6, 5);
+      block.castShadow = true;
+      block.receiveShadow = true;
+      group.add(block);
+
+      // Horizontal window bands
+      for (let floor = 0; floor < 3; floor++) {
+        for (let i = 0; i < 5; i++) {
+          const windowGeom = new THREE.BoxGeometry(3.5, 1.8, 0.2);
+          const windowMat = new THREE.MeshPhysicalMaterial({
+            color: 0x5a6a7a,
+            transmission: 0.5,
+            roughness: 0.1
+          });
+          const window = new THREE.Mesh(windowGeom, windowMat);
+          window.position.set(-30 + (i - 2) * 4.5, 2.5 + floor * 3.5, 5 + 7.6);
+          group.add(window);
+        }
+      }
+
+      // Rounded corner segment
+      const cornerGeom = new THREE.CylinderGeometry(3, 3, 12, 16);
+      const corner = new THREE.Mesh(cornerGeom, teachingBlockMaterial);
+      corner.position.set(-42, 6, -2);
+      corner.castShadow = true;
+      group.add(corner);
+
+      return group;
+    }
+    const teachingGroup = createTeachingBlock();
+    scene.add(teachingGroup);
+
+    // ---------- Additional Teaching Blocks ----------
+    function createAdditionalTeachingBlock(x, z, width, depth, height) {
+      const group = new THREE.Group();
+      
+      // Main block
+      const blockGeom = new THREE.BoxGeometry(width, height, depth);
+      const block = new THREE.Mesh(blockGeom, teachingBlockMaterial);
+      block.position.set(x, height / 2, z);
+      block.castShadow = true;
+      block.receiveShadow = true;
+      group.add(block);
+
+      // Windows
+      const floors = Math.floor(height / 3.5);
+      const windowsPerFloor = Math.floor(width / 5);
+      
+      for (let floor = 0; floor < floors; floor++) {
+        for (let i = 0; i < windowsPerFloor; i++) {
+          const windowGeom = new THREE.BoxGeometry(3, 1.6, 0.2);
+          const windowMat = new THREE.MeshPhysicalMaterial({
+            color: 0x5a6a7a,
+            transmission: 0.5,
+            roughness: 0.1
+          });
+          const window = new THREE.Mesh(windowGeom, windowMat);
+          window.position.set(
+            x + (i - windowsPerFloor / 2 + 0.5) * 4, 
+            2 + floor * 3.5, 
+            z + depth / 2 + 0.1
+          );
+          group.add(window);
+        }
+      }
+
+      return group;
+    }
+
+    // Add multiple teaching buildings
+    scene.add(createAdditionalTeachingBlock(-30, -15, 20, 12, 10)); // Behind left
+    scene.add(createAdditionalTeachingBlock(-50, 0, 18, 14, 9)); // Far left
+    scene.add(createAdditionalTeachingBlock(-35, 25, 22, 10, 11)); // Left rear
+    scene.add(createAdditionalTeachingBlock(30, -10, 16, 12, 8)); // Right side
+
+    // ---------- Historical Building (Classic Prague Architecture) ----------
+    function createHistoricalBuilding() {
+      const group = new THREE.Group();
+      
+      // Material - cream/pale yellow plaster (klasická pražská omietka)
+      const plasterMaterial = new THREE.MeshStandardMaterial({
+        color: 0xf4dc9a, // Výraznejšia žltá
+        roughness: 0.7,
+        metalness: 0.0
+      });
+      
+      // White trim material
+      const trimMaterial = new THREE.MeshStandardMaterial({
+        color: 0xf5f5f5,
+        roughness: 0.5
+      });
+      
+      // Window frame material
+      const windowFrameMaterial = new THREE.MeshStandardMaterial({
+        color: 0xe8e8e8,
+        roughness: 0.4
+      });
+      
+      // Glass material
+      const glassMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0x4a5a6a,
+        transmission: 0.5,
+        roughness: 0.1,
+        metalness: 0.1
+      });
+      
+      // Main building mass - 5 floors (pridané 2 poschodia)
+      const mainGeom = new THREE.BoxGeometry(30, 19.5, 18); // Z 12 na 19.5
+      const main = new THREE.Mesh(mainGeom, plasterMaterial);
+      main.position.set(0, 9.75, 0); // Z 6 na 9.75
+      main.castShadow = true;
+      main.receiveShadow = true;
+      group.add(main);
+      
+      // Ground floor base (sokl) - slightly darker
+      const baseGeom = new THREE.BoxGeometry(30.2, 1.5, 18.2);
+      const baseMat = new THREE.MeshStandardMaterial({
+        color: 0xe0d5b5, // Svetlejší sokl pre lepší kontrast
+        roughness: 0.8
+      });
+      const base = new THREE.Mesh(baseGeom, baseMat);
+      base.position.set(0, 0.75, 0);
+      base.castShadow = true;
+      group.add(base);
+      
+      // Horizontal decorative bands (rizality)
+      for (let floor = 1; floor <= 5; floor++) { // Z 3 na 5 poschodí
+        const bandGeom = new THREE.BoxGeometry(30.3, 0.2, 18.3);
+        const band = new THREE.Mesh(bandGeom, trimMaterial);
+        band.position.set(0, floor * 3.8 - 0.1, 0);
+        group.add(band);
+      }
+      
+      // Cornice (korunní římsa) - top decorative element
+      const corniceGeom = new THREE.BoxGeometry(31, 0.6, 18.5);
+      const cornice = new THREE.Mesh(corniceGeom, trimMaterial);
+      cornice.position.set(0, 19.8, 0); // Z 12.3 na 19.8
+      cornice.castShadow = true;
+      group.add(cornice);
+      
+      // Roof (šikmá střecha)
+      const roofGeom = new THREE.BoxGeometry(32, 0.5, 19);
+      const roofMat = new THREE.MeshStandardMaterial({
+        color: 0x6a5a4a,
+        roughness: 0.9
+      });
+      const roof = new THREE.Mesh(roofGeom, roofMat);
+      roof.position.set(0, 20.3, 0); // Z 12.8 na 20.3
+      roof.castShadow = true;
+      group.add(roof);
+      
+      // Windows - 5 floors × 7 windows each (pridané 2 poschodia)
+      const windowsPerFloor = 7;
+      const windowSpacing = 4.0;
+      
+      for (let floor = 0; floor < 5; floor++) { // Z 3 na 5
+        for (let i = 0; i < windowsPerFloor; i++) {
+          const windowGroup = new THREE.Group();
+          
+          // Window frame (rámy)
+          const frameGeom = new THREE.BoxGeometry(1.8, 2.2, 0.3);
+          const frame = new THREE.Mesh(frameGeom, windowFrameMaterial);
+          windowGroup.add(frame);
+          
+          // Glass pane
+          const glassGeom = new THREE.BoxGeometry(1.5, 1.9, 0.1);
+          const glass = new THREE.Mesh(glassGeom, glassMaterial);
+          glass.position.z = 0.05;
+          windowGroup.add(glass);
+          
+          // Window divider (křížový rám)
+          const dividerH = new THREE.Mesh(
+            new THREE.BoxGeometry(1.5, 0.08, 0.15),
+            windowFrameMaterial
+          );
+          dividerH.position.z = 0.1;
+          windowGroup.add(dividerH);
+          
+          const dividerV = new THREE.Mesh(
+            new THREE.BoxGeometry(0.08, 1.9, 0.15),
+            windowFrameMaterial
+          );
+          dividerV.position.z = 0.1;
+          windowGroup.add(dividerV);
+          
+          // Position window
+          windowGroup.position.set(
+            (i - (windowsPerFloor - 1) / 2) * windowSpacing,
+            2.3 + floor * 3.8,
+            9.2
+          );
+          
+          group.add(windowGroup);
+        }
+      }
+      
+      // Ground floor arched windows (arkýře)
+      for (let i = 0; i < 4; i++) {
+        // Arch shape
+        const archShape = new THREE.Shape();
+        archShape.moveTo(-0.9, 0);
+        archShape.lineTo(-0.9, 1.5);
+        archShape.absarc(0, 1.5, 0.9, Math.PI, 0, true);
+        archShape.lineTo(0.9, 0);
+        archShape.lineTo(-0.9, 0);
+        
+        const archGeom = new THREE.ShapeGeometry(archShape);
+        const archFrame = new THREE.Mesh(archGeom, windowFrameMaterial);
+        archFrame.position.set((i - 1.5) * 6, 2.0, 9.21);
+        group.add(archFrame);
+        
+        // Arched glass
+        const archGlassGeom = new THREE.ShapeGeometry(archShape);
+        const archGlass = new THREE.Mesh(archGlassGeom, glassMaterial);
+        archGlass.position.set((i - 1.5) * 6, 2.0, 9.25);
+        group.add(archGlass);
+      }
+      
+      // Entrance door (hlavní vchod)
+      const doorGeom = new THREE.BoxGeometry(2.5, 3.5, 0.3);
+      const doorMat = new THREE.MeshStandardMaterial({
+        color: 0x3a2a1a,
+        roughness: 0.6,
+        metalness: 0.2
+      });
+      const door = new THREE.Mesh(doorGeom, doorMat);
+      door.position.set(0, 1.75, 9.2);
+      group.add(door);
+      
+      // Door glass panels
+      for (let i = 0; i < 2; i++) {
+        const doorGlassGeom = new THREE.BoxGeometry(0.8, 2.5, 0.1);
+        const doorGlass = new THREE.Mesh(doorGlassGeom, glassMaterial);
+        doorGlass.position.set((i - 0.5) * 1.2, 2.0, 9.3);
+        group.add(doorGlass);
+      }
+      
+      // Decorative pilasters (pilastry) on corners
+      for (let side = -1; side <= 1; side += 2) {
+        const pilasterGeom = new THREE.BoxGeometry(0.5, 11, 0.5);
+        const pilaster = new THREE.Mesh(pilasterGeom, trimMaterial);
+        pilaster.position.set(side * 14.8, 6.5, 9.0);
+        group.add(pilaster);
+      }
+      
+      // NÁPIS "HOLLAR" na hornom poschodí
+      const hollarCanvas = document.createElement('canvas');
+      hollarCanvas.width = 1024;
+      hollarCanvas.height = 256;
+      const hollarCtx = hollarCanvas.getContext('2d');
+      
+      // Transparent background
+      hollarCtx.clearRect(0, 0, 1024, 256);
+      
+      // Black text with shadow
+      hollarCtx.fillStyle = '#1a1a1a';
+      hollarCtx.shadowColor = 'rgba(0,0,0,0.3)';
+      hollarCtx.shadowBlur = 5;
+      hollarCtx.shadowOffsetX = 2;
+      hollarCtx.shadowOffsetY = 2;
+      hollarCtx.font = 'bold 180px serif';
+      hollarCtx.textAlign = 'center';
+      hollarCtx.textBaseline = 'middle';
+      hollarCtx.fillText('HOLLAR', 512, 128);
+      
+      const hollarTexture = new THREE.CanvasTexture(hollarCanvas);
+      const hollarMat = new THREE.MeshBasicMaterial({ 
+        map: hollarTexture, 
+        transparent: true,
+        opacity: 1.0
+      });
+      const hollarGeom = new THREE.PlaneGeometry(12, 3);
+      const hollarSign = new THREE.Mesh(hollarGeom, hollarMat);
+      // Move slightly in front of facade so it isn't blocked by windows
+      hollarSign.position.set(0, 17.5, 10.2); // Slightly in front of facade
+      hollarSign.scale.set(1.1, 1.1, 1);
+      hollarSign.renderOrder = 999; // Ensure it renders on top when necessary
+      group.add(hollarSign);
+      
+      return group;
+    }
+    
+    // Add historical building to the right side of campus
+    const historicalBuildingGroup = createHistoricalBuilding();
+    historicalBuildingGroup.position.set(50, 0, -20); // Right side, away from main campus
+    historicalBuildingGroup.rotation.y = -Math.PI / 6; // Slight angle for better view
+    scene.add(historicalBuildingGroup);
+
+    // ---------- Context elements ----------
+    
+    // Trees (simple)
+    function createTree(x, z) {
+      const group = new THREE.Group();
+      
+      const trunkGeom = new THREE.CylinderGeometry(0.3, 0.4, 4, 8);
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3020 });
+      const trunk = new THREE.Mesh(trunkGeom, trunkMat);
+      trunk.position.y = 2;
+      trunk.castShadow = true;
+      group.add(trunk);
+
+      const foliageGeom = new THREE.SphereGeometry(2.5, 8, 8);
+      const foliageMat = new THREE.MeshStandardMaterial({ color: 0x2d5a2d }); // Zelená späť
+      const foliage = new THREE.Mesh(foliageGeom, foliageMat);
+      foliage.position.y = 5;
+      foliage.castShadow = true;
+      group.add(foliage);
+
+      group.position.set(x, 0, z);
+      return group;
+    }
+
+    // Add some trees around the plaza
+    scene.add(createTree(-25, -15));
+    scene.add(createTree(25, -15));
+    scene.add(createTree(-20, 20));
+    scene.add(createTree(20, 20));
+    scene.add(createTree(35, -5));
+
+    // ---------- Animation Loop ----------
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // ---------- Window Resize ----------
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+  </script>
+</body>
+</html>
