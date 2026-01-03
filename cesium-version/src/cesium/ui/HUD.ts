@@ -1,3 +1,4 @@
+import * as Cesium from 'cesium';
 import { Aircraft } from '../vehicles/Aircraft';
 import { EnemyAircraft } from '../vehicles/EnemyAircraft';
 import { AllyAircraft } from '../vehicles/AllyAircraft';

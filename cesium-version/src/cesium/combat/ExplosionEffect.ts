@@ -33,12 +33,16 @@ export class ExplosionEffect {
       
       // Color variations
       let color: Cesium.Color;
+      let isSmoke = false;
       const rand = Math.random();
       if (rand < 0.3) color = Cesium.Color.fromCssColorString('#ff3300');
       else if (rand < 0.5) color = Cesium.Color.fromCssColorString('#ff6600');
       else if (rand < 0.7) color = Cesium.Color.fromCssColorString('#ffaa00');
       else if (rand < 0.85) color = Cesium.Color.fromCssColorString('#ffff00');
-      else color = Cesium.Color.fromCssColorString('#333333');
+      else {
+        color = Cesium.Color.fromCssColorString('#333333');
+        isSmoke = true;
+      }
 
       // Random velocity
       const speed = (0.3 + Math.random() * 0.7) * scale;
@@ -59,7 +63,7 @@ export class ExplosionEffect {
       particles.push(particle);
 
       // Animate particle
-      this.animateParticle(particle, velocity, scale === 0x333333, 1000);
+      this.animateParticle(particle, velocity, isSmoke, 1000);
     }
   }
 

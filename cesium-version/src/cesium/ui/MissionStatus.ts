@@ -33,6 +33,6 @@ export class MissionStatus {
   }
 
   showDefeat(): void {
-    this.show('💀 PREHRA! Misie zlyhala!');
+    this.show('💀 PREHRA! Misia zlyhala!');
   }
 }
